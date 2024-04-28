@@ -11,11 +11,21 @@ let package = Package(
             name: "OfflineSync",
             targets: ["OfflineSync"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/Moya/Moya.git", .upToNextMajor(from: "15.0.0")),
+        .package(url: "https://github.com/stephencelis/SQLite.swift.git", .upToNextMajor(from: "0.15.3"))
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "OfflineSync"),
+            name: "OfflineSync",
+            dependencies: [
+                .product(name: "Moya", package: "Moya"),
+                .product(name: "SQLite", package: "SQLite.swift")
+            ],
+            path: "Sources"
+        ),
         .testTarget(
             name: "OfflineSyncTests",
             dependencies: ["OfflineSync"]),
