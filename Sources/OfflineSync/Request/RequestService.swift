@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import Moya
 
-@available(iOS 16.0, *)
+
 public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestService<Table, Target>, IService {
     var table: DatabaseTable<Table>
     var provider: MoyaProvider<Target>

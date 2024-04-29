@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import Moya
 
-@available(iOS 16.0, *)
+
 public class IRequestService<Table: TableProtocol, Target: TargetType> { // todo: use protocol
     /// get local records
     public func get() -> [Table] {
