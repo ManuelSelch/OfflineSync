@@ -72,7 +72,16 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
         let localRecords = table.get()
         
         for localRecord in localRecords {
-            if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
+            if (
+                remoteRecords.first(where: { $0.id == localRecord.id }) == nil &&
+                table.getTrack()?.getChange(localRecord.id, table.getName())?.type != .insert
+            )
+            {
+                // local was not inserted and no remote record -> delete local
+                table.delete(localRecord.id, isTrack: false)
+            }
+            
+            else if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
                 switch(change.type){
                     case .insert:
                         if let insertMethod = insertMethod {
@@ -123,13 +132,12 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
                 if table.getTrack()?.getChange(remoteRecord.id, table.getName()) == nil {
                     // local record not found and was not deleted -> insert local
                     table.insert(remoteRecord, isTrack: false)
-                } else {
-                    // else: remote deleted -> delete local
-                    table.delete(remoteRecord.id, isTrack: false)
-                }
-                
+                } 
+                // else: already local deleted
             }
         }
+        
+        
         
         return Publishers.MergeMany(publishers).eraseToAnyPublisher()
     }
