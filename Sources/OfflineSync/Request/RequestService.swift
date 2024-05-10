@@ -123,8 +123,10 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
                 if table.getTrack()?.getChange(remoteRecord.id, table.getName()) == nil {
                     // local record not found and was not deleted -> insert local
                     table.insert(remoteRecord, isTrack: false)
+                } else {
+                    // else: remote deleted -> delete local
+                    table.delete(remoteRecord.id, isTrack: false)
                 }
-                // else: local record is deleted
                 
             }
         }
