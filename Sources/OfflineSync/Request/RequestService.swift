@@ -3,7 +3,7 @@ import Combine
 import Moya
 
 
-public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestService<Table, Target>, IService {
+public class RequestService<Table: TableProtocol, Target: TargetType>: IService {
     var table: DatabaseTable<Table>
     var provider: MoyaProvider<Target>
     
@@ -30,29 +30,24 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
         self.deleteMethod = deleteMethod
     }
     
-    public override func get() -> [Table] {
+    public func get() -> [Table] {
         return table.get()
     }
     
-    public override func get(by id: Int) -> Table? {
+    public func get(by id: Int) -> Table? {
         return table.get(by: id)
     }
     
-
-    public override func fetch() -> AnyPublisher<[Table], Error> {
-        return request(provider, fetchMethod)
-    }
     
-    
-    public override func create(_ item: Table){
+    public func create(_ item: Table){
         table.create(item)
     }
     
-    public override func update(_ item: Table) {
+    public func update(_ item: Table) {
         table.update(item, isTrack: true)
     }
     
-    public override func sync(_ remoteRecords: [Table]) -> AnyPublisher<SyncResponse<Table>, Error> {
+    public func sync() async throws -> [Table]{
         // 1. get remote data
         // 2. get local changes
         
@@ -67,9 +62,8 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
         
         // ------------------------------
         
-        var publishers: [AnyPublisher<SyncResponse<Table>, Error>] = []
-        
         let localRecords = table.get()
+        var remoteRecords: [Table] = try await request(provider, fetchMethod)
         
         for localRecord in localRecords {
             if (
@@ -85,30 +79,24 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
                 switch(change.type){
                     case .insert:
                         if let insertMethod = insertMethod {
-                            let p: AnyPublisher<Table, Error> = request(provider, insertMethod(localRecord))
-                            publishers.append(
-                                p
-                                    .map { SyncResponse(change: change, result: $0) }
-                                    .eraseToAnyPublisher()
+                            let r: Table = try await request(provider, insertMethod(localRecord))
+                            hasSynced(
+                                SyncResponse(change: change, result: r)
                             )
                         }
                     case .update:
                         if let updateMethod = updateMethod {
-                            let p: AnyPublisher<Table, Error> = request(provider, updateMethod(localRecord))
-                            publishers.append(
-                                p
-                                    .map { SyncResponse(change: change, result: $0) }
-                                    .eraseToAnyPublisher()
+                            let r: Table = try await request(provider, updateMethod(localRecord))
+                            hasSynced(
+                                SyncResponse(change: change, result: r)
                             )
                         }
                     
                     case .delete:
                         if let deleteMethod = deleteMethod {
-                            let p: AnyPublisher<Table, Error> = request(provider, deleteMethod(localRecord))
-                            publishers.append(
-                                p
-                                    .map { SyncResponse(change: change, result: $0) }
-                                    .eraseToAnyPublisher()
+                            let r: Table = try await request(provider, deleteMethod(localRecord))
+                            hasSynced(
+                                SyncResponse(change: change, result: r)
                             )
                         }
                 }
@@ -137,12 +125,10 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IRequestS
             }
         }
         
-        
-        
-        return Publishers.MergeMany(publishers).eraseToAnyPublisher()
+        return table.get()
     }
     
-    public override func hasSynced(_ response: SyncResponse<Table>){
+    func hasSynced(_ response: SyncResponse<Table>){
         table.getTrack()?.delete(by: response.change.recordID)
         if(response.change.recordID != response.result.id){
             // id has changed -> delete and reinsert record

@@ -14,24 +14,24 @@ extension IService {
             .eraseToAnyPublisher()
     }
     
-    func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) -> AnyPublisher<Response, Error> {
-        return Future<Response, Error> { promise in
+    func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> Response {
+        return try await withCheckedThrowingContinuation { continuation in
             provider.request(method){ result in
                 switch result {
                 case .success(let response):
                     if let data = try? JSONDecoder().decode(Response.self, from: response.data) {
-                        promise(.success(data))
+                        continuation.resume(returning: data)
                     }else {
                         if let string = String(data: response.data, encoding: .utf8) {
-                            promise(.failure(OfflineSyncError.unknown(method.path + " -> " + string)))
+                            continuation.resume(throwing: OfflineSyncError.unknown(method.path + " -> " + string))
                         }else{
-                            promise(.failure(OfflineSyncError.decodeFailed))
+                            continuation.resume(throwing: OfflineSyncError.decodeFailed)
                         }
                     }
                 case .failure(let error):
-                    promise(.failure(OfflineSyncError.unknown(method.path + " -> " + error.localizedDescription)))
+                    continuation.resume(throwing: OfflineSyncError.unknown(method.path + " -> " + error.localizedDescription))
                 }
             }
-        }.eraseToAnyPublisher()
+        }
     }
 }
