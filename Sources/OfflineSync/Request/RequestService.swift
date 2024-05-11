@@ -7,7 +7,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     var table: DatabaseTable<Table>
     var provider: MoyaProvider<Target>
     
-    var fetchMethod: Target
+    var fetchMethod: (_ page: Int) -> Target
     var insertMethod: ((Table) -> Target)?
     var updateMethod: ((Table) -> Target)?
     var deleteMethod: ((Table) -> Target)?
@@ -16,7 +16,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         _ table: DatabaseTable<Table>,
         _ provider: MoyaProvider<Target>,
         
-        _ loadMethod: Target,
+        _ loadMethod: @escaping (_ page: Int) -> Target,
         _ insertMethod: ((Table) -> Target)? = nil,
         _ updateMethod: ((Table) -> Target)? = nil,
         _ deleteMethod: ((Table) -> Target)? = nil
@@ -47,7 +47,11 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         table.update(item, isTrack: true)
     }
     
-    public func sync() async throws -> [Table]{
+    public func fetch(_ page: Int) async throws -> FetchResponse<[Table]> {
+        return try await request(provider, fetchMethod(1))
+    }
+    
+    public func sync(_ remoteRecords: [Table]) async throws -> [Table]{
         // 1. get remote data
         // 2. get local changes
         
@@ -63,7 +67,6 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         // ------------------------------
         
         let localRecords = table.get()
-        var remoteRecords: [Table] = try await request(provider, fetchMethod)
         
         for localRecord in localRecords {
             if (
@@ -79,14 +82,14 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 switch(change.type){
                     case .insert:
                         if let insertMethod = insertMethod {
-                            let r: Table = try await request(provider, insertMethod(localRecord))
+                            let r: Table = try await request(provider, insertMethod(localRecord)).response
                             hasSynced(
                                 SyncResponse(change: change, result: r)
                             )
                         }
                     case .update:
                         if let updateMethod = updateMethod {
-                            let r: Table = try await request(provider, updateMethod(localRecord))
+                            let r: Table = try await request(provider, updateMethod(localRecord)).response
                             hasSynced(
                                 SyncResponse(change: change, result: r)
                             )
@@ -94,7 +97,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                     
                     case .delete:
                         if let deleteMethod = deleteMethod {
-                            let r: Table = try await request(provider, deleteMethod(localRecord))
+                            let r: Table = try await request(provider, deleteMethod(localRecord)).response
                             hasSynced(
                                 SyncResponse(change: change, result: r)
                             )
