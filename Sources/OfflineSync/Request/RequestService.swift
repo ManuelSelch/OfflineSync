@@ -2,12 +2,16 @@ import Foundation
 import Combine
 import Moya
 
+public enum FetchType<Target> {
+    case page((_ page: Int) -> Target)
+    case simple(Target)
+}
 
 public class RequestService<Table: TableProtocol, Target: TargetType>: IService {
     var table: DatabaseTable<Table>
     var provider: MoyaProvider<Target>
     
-    var fetchMethod: (_ page: Int) -> Target
+    var fetchMethod: FetchType<Target>
     var insertMethod: ((Table) -> Target)?
     var updateMethod: ((Table) -> Target)?
     var deleteMethod: ((Table) -> Target)?
@@ -16,7 +20,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         _ table: DatabaseTable<Table>,
         _ provider: MoyaProvider<Target>,
         
-        _ loadMethod: @escaping (_ page: Int) -> Target,
+        _ loadMethod: FetchType<Target>,
         _ insertMethod: ((Table) -> Target)? = nil,
         _ updateMethod: ((Table) -> Target)? = nil,
         _ deleteMethod: ((Table) -> Target)? = nil
@@ -47,8 +51,14 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         table.update(item, isTrack: true)
     }
     
-    public func fetch(_ page: Int) async throws -> FetchResponse<[Table]> {
-        return try await request(provider, fetchMethod(1))
+    public func fetch(_ page: Int = 1) async throws -> FetchResponse<[Table]> {
+        switch(fetchMethod){
+        case .page(let method):
+            return try await request(provider, method(page))
+        case .simple(let method):
+            return try await request(provider, method)
+        }
+        
     }
     
     public func sync(_ remoteRecords: [Table]) async throws -> [Table]{
