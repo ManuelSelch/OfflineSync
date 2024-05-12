@@ -81,6 +81,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         // ------------------------------
         
         let localRecords = table.get()
+        var synced: [SyncResponse<Table>] = []
         
         for localRecord in localRecords {
             if (
@@ -97,14 +98,14 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                     case .insert:
                         if let insertMethod = insertMethod {
                             let r: Table = try await request(provider, insertMethod(localRecord)).response
-                            hasSynced(
+                            synced.append(
                                 SyncResponse(change: change, result: r)
                             )
                         }
                     case .update:
                         if let updateMethod = updateMethod {
                             let r: Table = try await request(provider, updateMethod(localRecord)).response
-                            hasSynced(
+                            synced.append(
                                 SyncResponse(change: change, result: r)
                             )
                         }
@@ -112,7 +113,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                     case .delete:
                         if let deleteMethod = deleteMethod {
                             let r: Table = try await request(provider, deleteMethod(localRecord)).response
-                            hasSynced(
+                            synced.append(
                                 SyncResponse(change: change, result: r)
                             )
                         }
@@ -142,17 +143,20 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
             }
         }
         
+        hasSynced(synced)
         return table.get()
     }
     
-    func hasSynced(_ response: SyncResponse<Table>){
-        table.getTrack()?.delete(by: response.change.recordID)
-        if(response.change.recordID != response.result.id){
-            // id has changed -> delete and reinsert record
-            table.delete(response.change.recordID, isTrack: false)
-            table.insert(response.result, isTrack: false)
-        }else {
-            table.update(response.result, isTrack: false)
+    func hasSynced(_ responses: [SyncResponse<Table>]){
+        for response in responses {
+            table.getTrack()?.delete(by: response.change.recordID)
+            if(response.change.recordID != response.result.id){
+                // id has changed -> delete and reinsert record
+                table.delete(response.change.recordID, isTrack: false)
+                table.insert(response.result, isTrack: false)
+            }else {
+                table.update(response.result, isTrack: false)
+            }
         }
     }
     
