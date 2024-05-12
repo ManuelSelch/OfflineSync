@@ -160,5 +160,9 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         }
     }
     
+    public func getName() -> String {
+        return table.getName()
+    }
+    
     
 }
