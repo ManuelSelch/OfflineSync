@@ -130,6 +130,10 @@ public class TrackTable: ITrackTable {
 
 @available(iOS 16.0, *)
 public class TrackTableMock: ITrackTable {
+    public func clear() {
+        
+    }
+    
     public func clear(_ tableName: String) {
         
     }
