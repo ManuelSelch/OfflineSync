@@ -4,6 +4,7 @@ import SQLite
 
 @available(iOS 16.0, *)
 public protocol ITrackTable {
+    func clear()
     func clear(_ tableName: String)
     func insert(_ recordID: Int, _ tableName: String, _ type: DatabaseChangeType)
     func delete(by recordID: Int)
@@ -41,6 +42,13 @@ public class TrackTable: ITrackTable {
         return changes
     }
     
+    public func clear(){
+        do {
+            try db?.run(table.delete())
+        } catch {
+            
+        }
+    }
     public func clear(_ tableName: String) {
         do {
             try db?.run(table.filter(self.tableName == tableName).delete())
