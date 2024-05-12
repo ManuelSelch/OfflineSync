@@ -61,6 +61,10 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         
     }
     
+    public func clear(){
+        table.clear()
+    }
+    
     public func sync(_ remoteRecords: [Table]) async throws -> [Table]{
         // 1. get remote data
         // 2. get local changes
