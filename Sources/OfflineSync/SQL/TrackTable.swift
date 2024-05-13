@@ -58,7 +58,7 @@ public class TrackTable {
         do {
             if(type == .update){
                 var old = getChange(recordID, tableName)
-                if(old?.type != .update){
+                if(old != nil && old?.type != .update){
                     return
                 }
             }
