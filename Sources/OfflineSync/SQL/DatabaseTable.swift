@@ -29,9 +29,9 @@ public class DatabaseTable<T: TableProtocol> {
     private var id = Expression<Int>("id")
     private var fields: [String: Expression<Any>] = [:]
     
-    private let track: ITrackTable?
+    private let track: TrackTable?
     
-    public init(_ db: Connection?, _ tableName: String, _ track: ITrackTable? = nil) {
+    public init(_ db: Connection?, _ tableName: String, _ track: TrackTable? = nil) {
         self.track = track
         self.db = db
         self.tableName = tableName
@@ -176,7 +176,7 @@ public class DatabaseTable<T: TableProtocol> {
         }
     }
     
-    public func getTrack() -> ITrackTable? {
+    public func getTrack() -> TrackTable? {
         return track
     }
     

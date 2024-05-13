@@ -14,7 +14,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     var fetchMethod: FetchType<Target>
     var insertMethod: ((Table) -> Target)?
     var updateMethod: ((Table) -> Target)?
-    var deleteMethod: ((Table) -> Target)?
+    var deleteMethod: ((Int) -> Target)?
     
     public init(
         _ table: DatabaseTable<Table>,
@@ -23,7 +23,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         _ loadMethod: FetchType<Target>,
         _ insertMethod: ((Table) -> Target)? = nil,
         _ updateMethod: ((Table) -> Target)? = nil,
-        _ deleteMethod: ((Table) -> Target)? = nil
+        _ deleteMethod: ((Int) -> Target)? = nil
     ) {
         self.table = table
         self.provider = provider
@@ -69,19 +69,20 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         // 1. get remote data
         // 2. get local changes
         
+        // no track     -> local delete
+        
         // insert       -> remote insert
         // update       -> remote update
         // delete       -> remote delete
         
-        
         // no insert    -> local insert
         // no update    -> local update
-        // no delete    -> local delete
         
         // ------------------------------
         
         let localRecords = table.get()
         var synced: [SyncResponse<Table>] = []
+        let changes = table.getTrack()?.getChanges(table.getName()) ?? []
         
         for localRecord in localRecords {
             if (
@@ -92,33 +93,34 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 // local was not inserted and no remote record -> delete local
                 table.delete(localRecord.id, isTrack: false)
             }
-            
-            else if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
-                switch(change.type){
-                    case .insert:
-                        if let insertMethod = insertMethod {
-                            let r: Table = try await request(provider, insertMethod(localRecord)).response
-                            synced.append(
-                                SyncResponse(change: change, result: r)
-                            )
-                        }
-                    case .update:
-                        if let updateMethod = updateMethod {
-                            let r: Table = try await request(provider, updateMethod(localRecord)).response
-                            synced.append(
-                                SyncResponse(change: change, result: r)
-                            )
-                        }
-                    
-                    case .delete:
-                        if let deleteMethod = deleteMethod {
-                            let r: Table = try await request(provider, deleteMethod(localRecord)).response
-                            synced.append(
-                                SyncResponse(change: change, result: r)
-                            )
-                        }
-                }
+        }
+        
+        for change in changes {
+            switch(change.type){
+                case .insert:
+                    guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
+                    if let insertMethod = insertMethod {
+                        let r: Table = try await request(provider, insertMethod(localRecord)).response
+                        synced.append(
+                            SyncResponse(change: change, result: r)
+                        )
+                    }
+                case .update:
+                    guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
+                    if let updateMethod = updateMethod {
+                        let r: Table = try await request(provider, updateMethod(localRecord)).response
+                        synced.append(
+                            SyncResponse(change: change, result: r)
+                        )
+                    }
                 
+                case .delete:
+                    if let deleteMethod = deleteMethod {
+                        let r: Table = try await request(provider, deleteMethod(change.recordID)).response
+                        synced.append(
+                            SyncResponse(change: change, result: r)
+                        )
+                    }
             }
         }
         
@@ -149,7 +151,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     
     func hasSynced(_ responses: [SyncResponse<Table>]){
         for response in responses {
-            table.getTrack()?.delete(by: response.change.recordID)
+            table.getTrack()?.clear(response.change.recordID, response.change.tableName)
             if(response.change.recordID != response.result.id){
                 // id has changed -> delete and reinsert record
                 table.delete(response.change.recordID, isTrack: false)

@@ -1,19 +1,8 @@
 import Foundation
 import SQLite
 
-
 @available(iOS 16.0, *)
-public protocol ITrackTable {
-    func clear()
-    func clear(_ tableName: String)
-    func insert(_ recordID: Int, _ tableName: String, _ type: DatabaseChangeType)
-    func delete(by recordID: Int)
-    func getChange(_ recordID: Int, _ tableName: String) -> DatabaseChange?
-    func getAll(_ records: [any TableProtocol], _ tableName: String) -> [DatabaseChange]
-}
-
-@available(iOS 16.0, *)
-public class TrackTable: ITrackTable {
+public class TrackTable {
     private var db: Connection?
     private let table: Table
     private var dbPath: String?
@@ -57,8 +46,24 @@ public class TrackTable: ITrackTable {
         }
     }
     
+    public func clear(_ recordID: Int, _ tableName: String) {
+        do {
+            try db?.run(table.filter(self.recordID == recordID && self.tableName == tableName).delete())
+        } catch {
+            
+        }
+    }
+    
     public func insert(_ recordID: Int, _ tableName: String, _ type: DatabaseChangeType){
         do {
+            if(type == .update){
+                var old = getChange(recordID, tableName)
+                if(old?.type != .update){
+                    return
+                }
+            }
+            
+            clear(recordID, tableName)
             try db?.run(table.insert(
                 self.type <- type.rawValue,
                 self.recordID <- recordID,
@@ -70,24 +75,32 @@ public class TrackTable: ITrackTable {
         }
     }
     
-    
-    
-    public func delete(by recordID: Int){
+    public func getChange(_ recordID: Int, _ tableName: String) -> DatabaseChange? {
+        guard let db = db else { return nil }
         do {
-            try db?.run(
-                table.filter(self.recordID == recordID).delete()
-            )
-        } catch {
+            if let row = try db.pluck(table.filter(self.recordID == recordID && self.tableName == tableName)) {
+                return DatabaseChange(
+                    id: row[self.id],
+                    type: DatabaseChangeType(rawValue: row[type])!,
+                    recordID: row[self.recordID],
+                    tableName: row[self.tableName],
+                    timestamp: row[self.timestamp]
+                )
+            }
             
+            return nil
+            
+        } catch {
+            return nil
         }
     }
     
-    public func getChange(_ recordID: Int, _ tableName: String) -> DatabaseChange? {
+    public func getChanges(_ tableName: String) -> [DatabaseChange]? {
         guard let db = db else { return nil }
         do {
             var changes: [DatabaseChange] = []
             
-            for row in try db.prepare(table.filter(self.recordID == recordID && self.tableName == tableName)) {
+            for row in try db.prepare(table.filter(self.tableName == tableName)) {
                 changes.append(DatabaseChange(
                     id: row[self.id],
                     type: DatabaseChangeType(rawValue: row[type])!,
@@ -97,11 +110,8 @@ public class TrackTable: ITrackTable {
                 ))
             }
             
-            if(changes.last?.type == .delete){
-                return changes.last!
-            } else {
-                return changes.first
-            }
+            return changes
+            
         } catch {
             return nil
         }
@@ -123,36 +133,4 @@ public class TrackTable: ITrackTable {
            
         }
     }
-    
-    public static let mock = TrackTableMock()
-}
-
-
-@available(iOS 16.0, *)
-public class TrackTableMock: ITrackTable {
-    public func clear() {
-        
-    }
-    
-    public func clear(_ tableName: String) {
-        
-    }
-    
-    public func insert(_ recordID: Int, _ tableName: String, _ type: DatabaseChangeType) {
-        
-    }
-    
-    public func delete(by recordID: Int) {
-        
-    }
-    
-    public func getChange(_ recordID: Int, _ tableName: String) -> DatabaseChange? {
-        return nil
-    }
-    
-    public func getAll(_ records: [any TableProtocol], _ tableName: String) -> [DatabaseChange] {
-        return []
-    }
-    
-    
 }
