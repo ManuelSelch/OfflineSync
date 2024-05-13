@@ -51,6 +51,10 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         table.update(item, isTrack: true)
     }
     
+    public func delete(_ item: Table) {
+        table.delete(item.id, isTrack: true)
+    }
+    
     public func fetch(_ page: Int = 1) async throws -> FetchResponse<[Table]> {
         switch(fetchMethod){
         case .page(let method):
