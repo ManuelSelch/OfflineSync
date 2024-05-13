@@ -7,6 +7,10 @@ public enum FetchType<Target> {
     case simple(Target)
 }
 
+struct EmptyResponse: Decodable {
+    
+}
+
 public class RequestService<Table: TableProtocol, Target: TargetType>: IService {
     var table: DatabaseTable<Table>
     var provider: MoyaProvider<Target>
@@ -120,9 +124,9 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 
                 case .delete:
                     if let deleteMethod = deleteMethod {
-                        let r: Table = try await request(provider, deleteMethod(change.recordID)).response
+                        let r: EmptyResponse = try await request(provider, deleteMethod(change.recordID)).response
                         synced.append(
-                            SyncResponse(change: change, result: r)
+                            SyncResponse(change: change)
                         )
                     }
             }
@@ -156,12 +160,15 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     func hasSynced(_ responses: [SyncResponse<Table>]){
         for response in responses {
             table.getTrack()?.clear(response.change.recordID, response.change.tableName)
-            if(response.change.recordID != response.result.id){
-                // id has changed -> delete and reinsert record
-                table.delete(response.change.recordID, isTrack: false)
-                table.insert(response.result, isTrack: false)
-            }else {
-                table.update(response.result, isTrack: false)
+            
+            if let result = response.result {
+                if(response.change.recordID != result.id){
+                    // id has changed -> delete and reinsert record
+                    table.delete(response.change.recordID, isTrack: false)
+                    table.insert(result, isTrack: false)
+                }else {
+                    table.update(result, isTrack: false)
+                }
             }
         }
     }

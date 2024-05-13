@@ -22,5 +22,5 @@ public enum DatabaseChangeType: Int {
 @available(iOS 16.0, *)
 public struct SyncResponse<Target> {
     public var change: DatabaseChange
-    public var result: Target
+    public var result: Target?
 }
