@@ -24,15 +24,17 @@ extension IService {
             .eraseToAnyPublisher()
     }
     
-    func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> FetchResponse<Response> {
+    func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> FetchResponse<Response?> {
         return try await withCheckedThrowingContinuation { continuation in
             provider.request(method){ result in
                 switch result {
                 case .success(let response):
-                    if let data = try? JSONDecoder().decode(Response.self, from: response.data) {
-                        let headers = response.response?.allHeaderFields ?? [:]
-                        let fetchResponse: FetchResponse<Response> = FetchResponse(data, headers)
-                        continuation.resume(returning: fetchResponse)
+                    let headers = response.response?.allHeaderFields ?? [:]
+                    
+                    if (response.statusCode == 204){ // no content
+                        continuation.resume(returning: FetchResponse(nil, headers))
+                    } else if let data = try? JSONDecoder().decode(Response.self, from: response.data) {
+                        continuation.resume(returning: FetchResponse(data, headers))
                     }else {
                         if let string = String(data: response.data, encoding: .utf8) {
                             continuation.resume(throwing: OfflineSyncError.unknown(method.path + " -> " + string))

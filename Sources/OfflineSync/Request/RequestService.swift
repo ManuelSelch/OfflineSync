@@ -7,9 +7,6 @@ public enum FetchType<Target> {
     case simple(Target)
 }
 
-struct EmptyResponse: Decodable {
-    
-}
 
 public class RequestService<Table: TableProtocol, Target: TargetType>: IService {
     var table: DatabaseTable<Table>
@@ -62,9 +59,12 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     public func fetch(_ page: Int = 1) async throws -> FetchResponse<[Table]> {
         switch(fetchMethod){
         case .page(let method):
-            return try await request(provider, method(page))
+            var result: FetchResponse<[Table]?> = try await request(provider, method(page))
+            guard let response = result.response else { throw OfflineSyncError.decodeFailed }
+            return FetchResponse(result.response!, result.headers)
         case .simple(let method):
-            return try await request(provider, method)
+            var result: FetchResponse<[Table]?> = try await request(provider, method)
+            return FetchResponse(result.response!, result.headers)
         }
         
     }
@@ -108,7 +108,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 case .insert:
                     guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                     if let insertMethod = insertMethod {
-                        let r: Table = try await request(provider, insertMethod(localRecord)).response
+                        let r: Table = try await request(provider, insertMethod(localRecord)).response!
                         synced.append(
                             SyncResponse(change: change, result: r)
                         )
@@ -116,7 +116,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 case .update:
                     guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                     if let updateMethod = updateMethod {
-                        let r: Table = try await request(provider, updateMethod(localRecord)).response
+                        let r: Table = try await request(provider, updateMethod(localRecord)).response!
                         synced.append(
                             SyncResponse(change: change, result: r)
                         )
@@ -124,7 +124,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 
                 case .delete:
                     if let deleteMethod = deleteMethod {
-                        let r: EmptyResponse = try await request(provider, deleteMethod(change.recordID)).response
+                        let r: Table? = try await request(provider, deleteMethod(change.recordID)).response
                         synced.append(
                             SyncResponse(change: change)
                         )
