@@ -57,8 +57,14 @@ public class TrackTable {
     public func insert(_ recordID: Int, _ tableName: String, _ type: DatabaseChangeType){
         do {
             if(type == .update){
-                var old = getChange(recordID, tableName)
+                let old = getChange(recordID, tableName)
                 if(old != nil && old?.type != .update){
+                    return
+                }
+            } else if(type == .delete) {
+                let old = getChange(recordID, tableName)
+                if(old?.type == .insert) {
+                    clear(recordID, tableName)
                     return
                 }
             }
