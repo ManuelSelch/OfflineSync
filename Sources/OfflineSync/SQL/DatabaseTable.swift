@@ -64,7 +64,7 @@ public class DatabaseTable<T: TableProtocol> {
                 track?.insert(item.id, tableName, .insert)
             }
         } catch {
-            
+            print("database insert error: \(error.localizedDescription)")
         }
     }
     
@@ -99,7 +99,7 @@ public class DatabaseTable<T: TableProtocol> {
     }
     
     public func get() -> [T] {
-        guard let db = db else { return [] }
+        guard let db = db else { print("no connection db..."); return [] }
         
         do {
             let records: [T] = try db.prepare(table).map { row in
@@ -108,6 +108,7 @@ public class DatabaseTable<T: TableProtocol> {
             return records
             
         } catch {
+            print("error db...: \(error.localizedDescription)")
             return []
         }
     }

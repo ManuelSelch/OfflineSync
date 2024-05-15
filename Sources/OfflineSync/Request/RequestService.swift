@@ -60,7 +60,6 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         switch(fetchMethod){
         case .page(let method):
             var result: FetchResponse<[Table]?> = try await request(provider, method(page))
-            guard let response = result.response else { throw OfflineSyncError.decodeFailed }
             return FetchResponse(result.response!, result.headers)
         case .simple(let method):
             var result: FetchResponse<[Table]?> = try await request(provider, method)
