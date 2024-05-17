@@ -1,7 +1,7 @@
 import Foundation
 
 @available(iOS 16.0, *)
-public struct DatabaseChange: Equatable {
+public struct DatabaseChange: Equatable, Codable {
     public var id: Int
     public var type: DatabaseChangeType
     public var recordID: Int
@@ -10,7 +10,7 @@ public struct DatabaseChange: Equatable {
 }
 
 @available(iOS 16.0, *)
-public enum DatabaseChangeType: Int {
+public enum DatabaseChangeType: Int, Codable {
     /// locally updated record
     case update = 0
     /// locally inserted record
