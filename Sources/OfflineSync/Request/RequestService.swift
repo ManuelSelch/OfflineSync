@@ -8,18 +8,22 @@ public enum FetchType<Target> {
 }
 
 
-public class RequestService<Table: TableProtocol, Target: TargetType>: IService {
+public struct RequestService<Table: TableProtocol, Target: TargetType>: IService {
     var table: DatabaseTable<Table>
-    var provider: MoyaProvider<Target>
+    
+    var getProvider: () -> (MoyaProvider<Target>)
     
     var fetchMethod: FetchType<Target>
     var insertMethod: ((Table) -> Target)?
     var updateMethod: ((Table) -> Target)?
     var deleteMethod: ((Int) -> Target)?
     
+    
+    
     public init(
         _ table: DatabaseTable<Table>,
-        _ provider: MoyaProvider<Target>,
+        
+        _ getProvider: @escaping () -> (MoyaProvider<Target>),
         
         _ loadMethod: FetchType<Target>,
         _ insertMethod: ((Table) -> Target)? = nil,
@@ -27,7 +31,8 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         _ deleteMethod: ((Int) -> Target)? = nil
     ) {
         self.table = table
-        self.provider = provider
+        
+        self.getProvider = getProvider
         
         self.fetchMethod = loadMethod
         self.insertMethod = insertMethod
@@ -36,11 +41,11 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     }
     
     public func get() -> [Table] {
-        return table.get()
+        return table.getAll()
     }
     
     public func get(by id: Int) -> Table? {
-        return table.get(by: id)
+        return table.get(id)
     }
     
     
@@ -49,20 +54,20 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
     }
     
     public func update(_ item: Table) {
-        table.update(item, isTrack: true)
+        table.update(item, true)
     }
     
     public func delete(_ item: Table) {
-        table.delete(item.id, isTrack: true)
+        table.delete(item.id, true)
     }
     
     public func fetch(_ page: Int = 1) async throws -> FetchResponse<[Table]> {
         switch(fetchMethod){
         case .page(let method):
-            var result: FetchResponse<[Table]?> = try await request(provider, method(page))
+            let result: FetchResponse<[Table]?> = try await request(getProvider(), method(page))
             return FetchResponse(result.response!, result.headers)
         case .simple(let method):
-            var result: FetchResponse<[Table]?> = try await request(provider, method)
+            let result: FetchResponse<[Table]?> = try await request(getProvider(), method)
             return FetchResponse(result.response!, result.headers)
         }
         
@@ -87,7 +92,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
         
         // ------------------------------
         
-        let localRecords = table.get()
+        let localRecords = table.getAll()
         var synced: [SyncResponse<Table>] = []
         let changes = table.getTrack()?.getChanges(table.getName()) ?? []
         
@@ -98,7 +103,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
             )
             {
                 // local was not inserted and no remote record -> delete local
-                table.delete(localRecord.id, isTrack: false)
+                table.delete(localRecord.id, false)
             }
         }
         
@@ -107,7 +112,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 case .insert:
                     guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                     if let insertMethod = insertMethod {
-                        let r: Table = try await request(provider, insertMethod(localRecord)).response!
+                        let r: Table = try await request(getProvider(), insertMethod(localRecord)).response!
                         synced.append(
                             SyncResponse(change: change, result: r)
                         )
@@ -115,7 +120,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 case .update:
                     guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                     if let updateMethod = updateMethod {
-                        let r: Table = try await request(provider, updateMethod(localRecord)).response!
+                        let r: Table = try await request(getProvider(), updateMethod(localRecord)).response!
                         synced.append(
                             SyncResponse(change: change, result: r)
                         )
@@ -123,7 +128,7 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 
                 case .delete:
                     if let deleteMethod = deleteMethod {
-                        let r: Table? = try await request(provider, deleteMethod(change.recordID)).response
+                        let r: Table? = try await request(getProvider(), deleteMethod(change.recordID)).response
                         synced.append(
                             SyncResponse(change: change)
                         )
@@ -136,24 +141,24 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
                 if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
                     if change.type == .insert {
                         // remote and local id are new records -> insert local too
-                        table.insert(remoteRecord, isTrack: false) // local record will be overwritten but later fetched again
+                        table.insert(remoteRecord, false) // local record will be overwritten but later fetched again
                     }
                     // else: remoteRecord old
                 } else if localRecord != remoteRecord {
                     // remote data changed -> update local
-                    table.update(remoteRecord, isTrack: false)
+                    table.update(remoteRecord, false)
                 }
             } else {
                 if table.getTrack()?.getChange(remoteRecord.id, table.getName()) == nil {
                     // local record not found and was not deleted -> insert local
-                    table.insert(remoteRecord, isTrack: false)
+                    table.insert(remoteRecord, false)
                 } 
                 // else: already local deleted
             }
         }
         
         hasSynced(synced)
-        return table.get()
+        return table.getAll()
     }
     
     func hasSynced(_ responses: [SyncResponse<Table>]){
@@ -163,10 +168,10 @@ public class RequestService<Table: TableProtocol, Target: TargetType>: IService 
             if let result = response.result {
                 if(response.change.recordID != result.id){
                     // id has changed -> delete and reinsert record
-                    table.delete(response.change.recordID, isTrack: false)
-                    table.insert(result, isTrack: false)
+                    table.delete(response.change.recordID, false)
+                    table.insert(result, false)
                 }else {
-                    table.update(result, isTrack: false)
+                    table.update(result, false)
                 }
             }
         }

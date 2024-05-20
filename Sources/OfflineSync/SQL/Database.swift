@@ -10,18 +10,16 @@ public protocol IDatabase {
 }
 
 @available(iOS 16.0, *)
-public class Database: IDatabase {
-    public var connection: Connection?
-    private var dbPath: String?
-    private var databaseName: String
-    
-    
-    public init(_ databaseName: String) {
-        self.databaseName = databaseName
-        create()
-    }
-    
-    public func create(){
+public struct Database {
+    public var connection: () -> (Connection?)
+    public var reset: () -> ()
+}
+
+extension Database {
+    public static func live(_ databaseName: String) -> Self {
+        var dbPath: String?
+        var connection: Connection?
+        
         if let dirPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             dbPath = dirPath.appendingPathComponent(databaseName).path
             
@@ -30,56 +28,37 @@ public class Database: IDatabase {
             } catch {
                 connection = nil
             }
-        }else{
-            dbPath = nil
-            connection = nil
-        }
-    }
-    
-    
-    public func reset()
-    {
-        if let dbPath = dbPath {
-            let filemManager = FileManager.default
-            do {
-                let fileURL = NSURL(fileURLWithPath: dbPath)
-                try filemManager.removeItem(at: fileURL as URL)
-                print("Database Deleted!")
-            } catch {
-                print("Error on Delete Database!!!")
-            }
         }
         
-        create()
+        return Self(
+            connection: {connection},
+            reset: {
+                if let dbPath = dbPath {
+                    let filemManager = FileManager.default
+                    do {
+                        let fileURL = NSURL(fileURLWithPath: dbPath)
+                        try filemManager.removeItem(at: fileURL as URL)
+                        print("Database Deleted!")
+                    } catch {
+                        print("Error on Delete Database!!!")
+                    }
+                } else {
+                    print("Database path not found")
+                }
+            }
+        )
     }
     
-    public static let mock = DatabaseMock()
+    public static var mock: Self {
+        var connection = try? Connection(.inMemory)
+        
+        return Self(
+            connection: {connection},
+            reset: { connection = nil }
+        )
+    }
 }
 
-@available(iOS 16.0, *)
-public class DatabaseMock: IDatabase {
-    public var connection: Connection?
-    
-    
-    public init() {
-        create()
-    }
-    
-    public func create(){
-        do {
-            connection = try Connection(.inMemory)
-        }catch {
-            
-        }
-    }
-    
-    
-    public func reset()
-    {
-        create()
-    }
-    
-}
 
 
 
