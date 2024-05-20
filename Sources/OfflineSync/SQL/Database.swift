@@ -33,14 +33,15 @@ extension Database {
         return Self(
             connection: {connection},
             reset: {
+                print("start delete database")
                 if let dbPath = dbPath {
                     let filemManager = FileManager.default
                     do {
                         let fileURL = NSURL(fileURLWithPath: dbPath)
                         try filemManager.removeItem(at: fileURL as URL)
-                        print("Database Deleted!")
+                        print("Database Deleted: \(databaseName)")
                     } catch {
-                        print("Error on Delete Database!!!")
+                        print("Error on Delete Database: \(databaseName)")
                     }
                 } else {
                     print("Database path not found")
