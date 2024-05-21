@@ -11,8 +11,10 @@ public protocol IDatabase {
 
 @available(iOS 16.0, *)
 public struct Database {
-    public var connection: () -> (Connection?)
+    public var connection: Connection?
     public var reset: () -> ()
+    
+    public var switchDB: (String) -> (Database)
 }
 
 extension Database {
@@ -31,7 +33,7 @@ extension Database {
         }
         
         return Self(
-            connection: {connection},
+            connection: connection,
             reset: {
                 print("start delete database")
                 if let dbPath = dbPath {
@@ -46,7 +48,8 @@ extension Database {
                 } else {
                     print("Database path not found")
                 }
-            }
+            },
+            switchDB: { name in .live(name) }
         )
     }
     
@@ -54,9 +57,14 @@ extension Database {
         var connection = try? Connection(.inMemory)
         
         return Self(
-            connection: {connection},
-            reset: { connection = nil }
+            connection: connection,
+            reset: { connection = nil },
+            switchDB: { _ in .mock }
         )
+    }
+    
+    public static var none: Self {
+        return Self(connection: nil, reset: {}, switchDB: { name in .live(name)})
     }
 }
 
