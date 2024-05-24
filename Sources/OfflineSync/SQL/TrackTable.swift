@@ -1,9 +1,11 @@
 import Foundation
 import SQLite
+import Dependencies
 
 @available(iOS 16.0, *)
-public class TrackTable {
-    private var db: Connection?
+public class TrackTable: DependencyKey {
+    @Dependency(\.database) var database
+    
     private let table: Table
     private var dbPath: String?
     
@@ -13,8 +15,7 @@ public class TrackTable {
     private var tableName = Expression<String>("tableName")
     private var timestamp = Expression<String>("timestamp")
     
-    public init(_ db: Connection?) {
-        self.db = db
+    public init() {
         self.table = Table("track")
         createTable()
     }
@@ -33,14 +34,14 @@ public class TrackTable {
     
     public func clear(){
         do {
-            try db?.run(table.delete())
+            try database.connection?.run(table.delete())
         } catch {
             
         }
     }
     public func clear(_ tableName: String) {
         do {
-            try db?.run(table.filter(self.tableName == tableName).delete())
+            try database.connection?.run(table.filter(self.tableName == tableName).delete())
         } catch {
             
         }
@@ -48,7 +49,7 @@ public class TrackTable {
     
     public func clear(_ recordID: Int, _ tableName: String) {
         do {
-            try db?.run(table.filter(self.recordID == recordID && self.tableName == tableName).delete())
+            try database.connection?.run(table.filter(self.recordID == recordID && self.tableName == tableName).delete())
         } catch {
             
         }
@@ -70,7 +71,7 @@ public class TrackTable {
             }
             
             clear(recordID, tableName)
-            try db?.run(table.insert(
+            try database.connection?.run(table.insert(
                 self.type <- type.rawValue,
                 self.recordID <- recordID,
                 self.tableName <- tableName,
@@ -82,7 +83,7 @@ public class TrackTable {
     }
     
     public func getChange(_ recordID: Int, _ tableName: String) -> DatabaseChange? {
-        guard let db = db else { return nil }
+        guard let db = database.connection else { return nil }
         do {
             if let row = try db.pluck(table.filter(self.recordID == recordID && self.tableName == tableName)) {
                 return DatabaseChange(
@@ -102,7 +103,7 @@ public class TrackTable {
     }
     
     public func getChanges(_ tableName: String) -> [DatabaseChange]? {
-        guard let db = db else { return nil }
+        guard let db = database.connection else { return nil }
         do {
             var changes: [DatabaseChange] = []
             
@@ -124,7 +125,7 @@ public class TrackTable {
     }
     
     
-    private func createTable() {
+    public func createTable() {
         let createTable = table.create(ifNotExists: true) { (table) in
             table.column(id, primaryKey: .default)
             table.column(type)
@@ -133,10 +134,19 @@ public class TrackTable {
             table.column(timestamp)
         }
         
-        do {
-            try db?.run(createTable)
-        } catch {
-           
-        }
+        try? database.connection?.run(createTable)
+    }
+}
+
+extension TrackTable {
+    static public var liveValue: TrackTable {
+        .init()
+    }
+}
+
+public extension DependencyValues {
+    var track: TrackTable {
+        get { self[TrackTable.self] }
+        set { self[TrackTable.self] = newValue }
     }
 }

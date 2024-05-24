@@ -1,5 +1,6 @@
 import Foundation
 import SQLite
+import Dependencies
 
 /*
  sync system:
@@ -21,7 +22,9 @@ public protocol TableProtocol: Codable, Equatable, Identifiable {
 
 @available(iOS 16.0, *)
 public class DatabaseTable<T: TableProtocol> {
-    private var db: Connection?
+    @Dependency(\.database) var database
+    @Dependency(\.track) var track
+    
     private let table: Table
     private let tableName: String
     private var dbPath: String?
@@ -29,11 +32,7 @@ public class DatabaseTable<T: TableProtocol> {
     private var id = Expression<Int>("id")
     private var fields: [String: Expression<Any>] = [:]
     
-    private let track: TrackTable?
-    
-    public init(_ db: Connection?, _ tableName: String, _ track: TrackTable? = nil) {
-        self.track = track
-        self.db = db
+    public init(_ tableName: String) {
         self.tableName = tableName
         
         table = Table(tableName)
@@ -42,7 +41,7 @@ public class DatabaseTable<T: TableProtocol> {
     
     public func clear() {
         do {
-            try db?.run(table.delete())
+            try database.connection?.run(table.delete())
         } catch {
             
         }
@@ -59,9 +58,9 @@ public class DatabaseTable<T: TableProtocol> {
     public func insert(_ item: T, isTrack: Bool) {
         let item = item
         do {
-            try db?.run(table.insert(or: .replace, encodable: item))
+            try database.connection?.run(table.insert(or: .replace, encodable: item))
             if(isTrack){
-                track?.insert(item.id, tableName, .insert)
+                track.insert(item.id, tableName, .insert)
             }
         } catch {
             print("database insert error: \(error.localizedDescription)")
@@ -78,9 +77,9 @@ public class DatabaseTable<T: TableProtocol> {
     
     public func update(_ item: T, isTrack: Bool) {
         do {
-            try db?.run(table.filter(id == item.id).update(item))
+            try database.connection?.run(table.filter(id == item.id).update(item))
             if(isTrack){
-                track?.insert(item.id, tableName, .update)
+                track.insert(item.id, tableName, .update)
             }
         } catch {
             
@@ -89,9 +88,9 @@ public class DatabaseTable<T: TableProtocol> {
     
     public func delete(_ id: Int, isTrack: Bool) {
         do {
-            try db?.run(table.filter(self.id == id).delete())
+            try database.connection?.run(table.filter(self.id == id).delete())
             if(isTrack){
-                track?.insert(id, tableName, .delete)
+                track.insert(id, tableName, .delete)
             }
         } catch {
             
@@ -99,7 +98,9 @@ public class DatabaseTable<T: TableProtocol> {
     }
     
     public func get() -> [T] {
-        guard let db = db else { print("no connection db..."); return [] }
+        guard let db = database.connection else { print("no connection db..."); return [] }
+        
+        createTable()
         
         do {
             let records: [T] = try db.prepare(table).map { row in
@@ -114,7 +115,7 @@ public class DatabaseTable<T: TableProtocol> {
     }
     
     public func get(by id: Int) -> T? {
-        guard let db = db else { return nil }
+        guard let db = database.connection else { return nil }
         
         do {
             let records: [T] = try db.prepare(table.filter(self.id == id)).map { row in
@@ -171,7 +172,7 @@ public class DatabaseTable<T: TableProtocol> {
         }
         
         do {
-            try db?.run(createTable)
+            try database.connection?.run(createTable)
         } catch {
             
         }
