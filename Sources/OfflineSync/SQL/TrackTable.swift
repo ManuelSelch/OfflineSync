@@ -138,8 +138,12 @@ public class TrackTable: DependencyKey {
     }
 }
 
-extension TrackTable {
-    static public var liveValue: TrackTable {
+public extension TrackTable {
+    static var liveValue: TrackTable {
+        .init()
+    }
+    
+    static public var testValue: TrackTable {
         .init()
     }
 }

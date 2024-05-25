@@ -22,6 +22,7 @@ public struct Database: DependencyKey {
     public var switchDB: (String) -> ()
     
     static public let liveValue = Database.live(name: nil)
+    static public let testValue: Database = .mock
 }
 
 extension Database {
