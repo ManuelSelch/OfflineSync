@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Moya
+import Redux
 
 public enum FetchType<Target> {
     case page((_ page: Int) -> Target)
@@ -62,6 +63,8 @@ public extension RequestService {
         deleteMethod: ((Int) -> Target)? = nil
     ) -> Self
     {
+        @Dependency(\.track) var track
+        
         return Self(
             _get: { table.get() },
             _getBy: { table.get(by: $0) },
@@ -96,12 +99,12 @@ public extension RequestService {
                 
                 let localRecords = table.get()
                 var synced: [SyncResponse<Table>] = []
-                let changes = table.getTrack()?.getChanges(table.getName()) ?? []
+                let changes = track.getChanges(table.getName()) ?? []
                 
                 for localRecord in localRecords {
                     if (
                         remoteRecords.first(where: { $0.id == localRecord.id }) == nil &&
-                        table.getTrack()?.getChange(localRecord.id, table.getName())?.type != .insert
+                        track.getChange(localRecord.id, table.getName())?.type != .insert
                     )
                     {
                         // local was not inserted and no remote record -> delete local
@@ -140,7 +143,7 @@ public extension RequestService {
                 
                 for remoteRecord in remoteRecords {
                     if let localRecord = localRecords.first(where: { $0.id == remoteRecord.id }) {
-                        if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
+                        if let change = track.getChange(localRecord.id, table.getName()) {
                             if change.type == .insert {
                                 // remote and local id are new records -> insert local too
                                 table.insert(remoteRecord, isTrack: false) // local record will be overwritten but later fetched again
@@ -151,7 +154,7 @@ public extension RequestService {
                             table.update(remoteRecord, isTrack: false)
                         }
                     } else {
-                        if table.getTrack()?.getChange(remoteRecord.id, table.getName()) == nil {
+                        if track.getChange(remoteRecord.id, table.getName()) == nil {
                             // local record not found and was not deleted -> insert local
                             table.insert(remoteRecord, isTrack: false)
                         }
@@ -160,7 +163,7 @@ public extension RequestService {
                 }
                 
                 for response in synced {
-                    table.getTrack()?.clear(response.change.recordID, response.change.tableName)
+                    track.clear(response.change.recordID, response.change.tableName)
                     
                     if let result = response.result {
                         if(response.change.recordID != result.id){
@@ -208,6 +211,8 @@ public extension RequestService {
         table: DatabaseTable<Table>
     ) -> Self
     {
+        @Dependency(\.track) var track
+        
         return Self(
             _get: { table.get() },
             _getBy: { table.get(by: $0) },
@@ -235,12 +240,12 @@ public extension RequestService {
                 
                 let localRecords = table.get()
                 var synced: [SyncResponse<Table>] = []
-                let changes = table.getTrack()?.getChanges(table.getName()) ?? []
+                let changes = track.getChanges(table.getName()) ?? []
                 
                 for localRecord in localRecords {
                     if (
                         remoteRecords.first(where: { $0.id == localRecord.id }) == nil &&
-                        table.getTrack()?.getChange(localRecord.id, table.getName())?.type != .insert
+                        track.getChange(localRecord.id, table.getName())?.type != .insert
                     )
                     {
                         // local was not inserted and no remote record -> delete local
@@ -250,7 +255,7 @@ public extension RequestService {
                 
                 for remoteRecord in remoteRecords {
                     if let localRecord = localRecords.first(where: { $0.id == remoteRecord.id }) {
-                        if let change = table.getTrack()?.getChange(localRecord.id, table.getName()) {
+                        if let change = track.getChange(localRecord.id, table.getName()) {
                             if change.type == .insert {
                                 // remote and local id are new records -> insert local too
                                 table.insert(remoteRecord, isTrack: false) // local record will be overwritten but later fetched again
@@ -261,7 +266,7 @@ public extension RequestService {
                             table.update(remoteRecord, isTrack: false)
                         }
                     } else {
-                        if table.getTrack()?.getChange(remoteRecord.id, table.getName()) == nil {
+                        if track.getChange(remoteRecord.id, table.getName()) == nil {
                             // local record not found and was not deleted -> insert local
                             table.insert(remoteRecord, isTrack: false)
                         }

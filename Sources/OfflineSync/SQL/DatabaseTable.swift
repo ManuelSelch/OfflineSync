@@ -178,10 +178,6 @@ public class DatabaseTable<T: TableProtocol> {
         }
     }
     
-    public func getTrack() -> TrackTable? {
-        return track
-    }
-    
     public func getName() -> String {
         return tableName
     }
