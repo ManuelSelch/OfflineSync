@@ -96,7 +96,7 @@ struct DatabaseKey: DependencyKey {
 
 
 public extension DependencyValues {
-    var database: Database {
+    public var database: Database {
         get { Self[DatabaseKey.self] }
         set { Self[DatabaseKey.self] = newValue }
     }
