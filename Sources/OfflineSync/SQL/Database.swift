@@ -1,7 +1,7 @@
 import Foundation
 import SQLite
 import Combine
-import Dependencies
+import Redux
 
 @available(iOS 16.0, *)
 public protocol IDatabase {
@@ -11,7 +11,7 @@ public protocol IDatabase {
 }
 
 @available(iOS 16.0, *)
-public struct Database: DependencyKey {
+public struct Database {
     public var connection: Connection? {
         getConnection()
     }
@@ -89,11 +89,16 @@ extension Database {
 }
 
 
+struct DatabaseKey: DependencyKey {
+    public static var liveValue = Database.live(name: nil)
+    public static var mockValue = Database.mock
+}
+
 
 public extension DependencyValues {
     var database: Database {
-        get { self[Database.self] }
-        set { self[Database.self] = newValue }
+        get { Self[DatabaseKey.self] }
+        set { Self[DatabaseKey.self] = newValue }
     }
 }
 

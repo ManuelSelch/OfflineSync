@@ -1,9 +1,9 @@
 import Foundation
 import SQLite
-import Dependencies
+import Redux
 
 @available(iOS 16.0, *)
-public class TrackTable: DependencyKey {
+public class TrackTable {
     @Dependency(\.database) var database
     
     private let table: Table
@@ -138,19 +138,14 @@ public class TrackTable: DependencyKey {
     }
 }
 
-public extension TrackTable {
-    static var liveValue: TrackTable {
-        .init()
-    }
-    
-    static public var testValue: TrackTable {
-        .init()
-    }
+struct TrackTableKey: DependencyKey {
+    static var liveValue = TrackTable()
+    static var mockValue = TrackTable()
 }
 
 public extension DependencyValues {
     var track: TrackTable {
-        get { self[TrackTable.self] }
-        set { self[TrackTable.self] = newValue }
+        get { Self[TrackTableKey.self] }
+        set { Self[TrackTableKey.self] = newValue }
     }
 }

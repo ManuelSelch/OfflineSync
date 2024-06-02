@@ -1,6 +1,6 @@
 import Foundation
 import SQLite
-import Dependencies
+import Redux
 
 /*
  sync system:
