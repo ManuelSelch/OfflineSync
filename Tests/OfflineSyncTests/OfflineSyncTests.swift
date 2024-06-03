@@ -1,5 +1,6 @@
 import XCTest
 import Moya
+import Redux
 
 @testable import OfflineSync
 
@@ -50,18 +51,17 @@ extension TestTarget {
 }
 
 final class OfflineSyncTests: XCTestCase {
+    
+    @Dependency(\.track) var track
     var service: RequestService<TestTable, TestTarget>!
     
+
+    
     override func setUp() {
-        let db = Database.mock
-        let track = TrackTable(db.connection)
-        let table = DatabaseTable<TestTable>(db.connection, "testSync", track)
+        let table = DatabaseTable<TestTable>("testSync")
         let provider = MoyaProvider<TestTarget>(stubClosure: MoyaProvider.immediatelyStub)
         
-        service = .init(
-            table, provider, .simple(.fetch)
-            // TestTarget.insert, TestTarget.update, TestTarget.delete
-        )
+        service = .live(table: table, provider: provider, fetchMethod: .simple(.fetch))
     }
     
     func testSync_Insert() async throws {
@@ -101,7 +101,7 @@ final class OfflineSyncTests: XCTestCase {
         // track table needs to be cleared manually
         // because no remote api is provided
         // -> TODO: mock sync to remote server
-        service.table.getTrack()?.clear()
+        track.clear()
         
         // update by remote record
         let remote: TestTable = .init(1, "1_remote")

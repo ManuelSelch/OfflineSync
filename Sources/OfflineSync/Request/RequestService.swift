@@ -133,7 +133,7 @@ public extension RequestService {
                         
                         case .delete:
                             if let deleteMethod = deleteMethod {
-                                let r: Table? = try await request(provider, deleteMethod(change.recordID)).response
+                                let _: Table? = try await request(provider, deleteMethod(change.recordID)).response
                                 synced.append(
                                     SyncResponse(change: change)
                                 )
@@ -239,8 +239,6 @@ public extension RequestService {
                 // ------------------------------
                 
                 let localRecords = table.get()
-                var synced: [SyncResponse<Table>] = []
-                let changes = track.getChanges(table.getName()) ?? []
                 
                 for localRecord in localRecords {
                     if (

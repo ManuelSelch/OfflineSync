@@ -90,13 +90,13 @@ extension Database {
 
 
 struct DatabaseKey: DependencyKey {
-    public static var liveValue = Database.live(name: nil)
-    public static var mockValue = Database.mock
+    static var liveValue = Database.live(name: nil)
+    static var mockValue = Database.mock
 }
 
 
 public extension DependencyValues {
-    public var database: Database {
+    var database: Database {
         get { Self[DatabaseKey.self] }
         set { Self[DatabaseKey.self] = newValue }
     }
