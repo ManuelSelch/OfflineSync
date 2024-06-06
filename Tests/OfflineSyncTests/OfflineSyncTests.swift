@@ -1,6 +1,6 @@
 import XCTest
 import Moya
-import Redux
+import Dependencies
 
 @testable import OfflineSync
 

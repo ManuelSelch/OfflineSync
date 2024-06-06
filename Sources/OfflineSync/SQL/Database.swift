@@ -1,7 +1,7 @@
 import Foundation
 import SQLite
 import Combine
-import Redux
+import Dependencies
 
 @available(iOS 16.0, *)
 public protocol IDatabase {

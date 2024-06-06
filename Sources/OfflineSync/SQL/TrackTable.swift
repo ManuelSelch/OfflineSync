@@ -1,6 +1,6 @@
 import Foundation
 import SQLite
-import Redux
+import Dependencies
 
 @available(iOS 16.0, *)
 public class TrackTable {
@@ -134,7 +134,7 @@ public class TrackTable {
             table.column(timestamp)
         }
         
-        try? database.connection?.run(createTable)
+        _ = try? database.connection?.run(createTable)
     }
 }
 

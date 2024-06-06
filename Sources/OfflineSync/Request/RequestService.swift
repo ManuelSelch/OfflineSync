@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 import Moya
-import Redux
+import Dependencies
 
 public enum FetchType<Target> {
     case page((_ page: Int) -> Target)
