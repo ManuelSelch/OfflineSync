@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "dependencies",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ManuelSelch/Dependencies.git",
+      "state" : {
+        "revision" : "94ac38716591c5c7e0ce512765e649f06df5f8d8",
+        "version" : "1.0.0"
+      }
+    },
+    {
       "identity" : "moya",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Moya/Moya.git",
@@ -25,15 +34,6 @@
       "state" : {
         "revision" : "c43bae3dac73fdd3cb906bd5a1914686ca71ed3c",
         "version" : "6.7.0"
-      }
-    },
-    {
-      "identity" : "redux",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ManuelSelch/Redux.git",
-      "state" : {
-        "revision" : "125a36bb12ba1cf1c7140dfcad6a70778f4d1d14",
-        "version" : "1.1.3"
       }
     },
     {
