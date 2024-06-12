@@ -9,15 +9,15 @@ public enum FetchType<Target> {
 }
 
 public struct RequestService<Table: TableProtocol, Target: TargetType> {
-    public var _get: () -> [Table]
-    public var _getBy: (Int) -> Table?
-    public var _create: (Table) -> ()
-    public var _update: (Table) -> ()
-    public var _delete: (Table) -> ()
-    public var _fetch: (_ page: Int) async throws -> FetchResponse<[Table]>
-    public var _clear: () -> ()
-    public var _sync: ([Table]) async throws -> [Table]
-    public var _getName: () -> String
+    var _get: () -> [Table]
+    var _getBy: (Int) -> Table?
+    var _create: (Table) -> ()
+    var _update: (Table) -> ()
+    var _delete: (Table) -> ()
+    var _fetch: (_ page: Int) async throws -> FetchResponse<[Table]>
+    var _clear: () -> ()
+    var _sync: ([Table]) async throws -> [Table]
+    var _getName: () -> String
     
     public func get() -> [Table] {
         return self._get()
@@ -43,9 +43,22 @@ public struct RequestService<Table: TableProtocol, Target: TargetType> {
     public func clear() {
         self._clear()
     }
-    public func sync(_ remoteRecords: [Table]) async throws -> [Table] {
-        return try await self._sync(remoteRecords)
+    
+    public func sync() -> AnyPublisher<[Table], Error> {
+        return Future<[Table], Error> { promise in
+            _Concurrency.Task {
+                do {
+                    let remote = try await self.fetch()
+                    let synced = try await self._sync(remote.response)
+                    return promise(.success(synced))
+                } catch {
+                    return promise(.failure(OfflineSyncError.unknown("\(error)")))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
     }
+    
     public func getName() -> String {
         return self._getName()
     }
