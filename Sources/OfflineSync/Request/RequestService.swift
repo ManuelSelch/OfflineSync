@@ -19,6 +19,8 @@ public struct RequestService<Table: TableProtocol, Target: TargetType> {
     var _sync: ([Table]) async throws -> [Table]
     var _getName: () -> String
     
+    var _setPlugins: ([any PluginType]) -> ()
+    
     public func get() -> [Table] {
         return self._get()
     }
@@ -62,13 +64,19 @@ public struct RequestService<Table: TableProtocol, Target: TargetType> {
     public func getName() -> String {
         return self._getName()
     }
+    
+    public func setPlugins(_ plugins: [any PluginType]) {
+        self._setPlugins(plugins)
+    }
 }
 
-public extension RequestService {
-    static func live(
+extension RequestService {
+    static func normal(
         table: DatabaseTable<Table>,
         
-        provider: MoyaProvider<Target>,
+        provider: @escaping () -> (MoyaProvider<Target>),
+        
+        setPlugins: @escaping ([any PluginType]) -> (),
         
         fetchMethod: FetchType<Target>,
         insertMethod: ((Table) -> Target)? = nil,
@@ -87,10 +95,10 @@ public extension RequestService {
             _fetch: { page in
                 switch(fetchMethod){
                 case .page(let method):
-                    let result: FetchResponse<[Table]?> = try await request(provider, method(page))
+                    let result: FetchResponse<[Table]?> = try await request(provider(), method(page))
                     return FetchResponse(result.response!, result.headers)
                 case .simple(let method):
-                    let result: FetchResponse<[Table]?> = try await request(provider, method)
+                    let result: FetchResponse<[Table]?> = try await request(provider(), method)
                     return FetchResponse(result.response!, result.headers)
                 }
             },
@@ -130,7 +138,7 @@ public extension RequestService {
                         case .insert:
                             guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                             if let insertMethod = insertMethod {
-                                let r: Table = try await request(provider, insertMethod(localRecord)).response!
+                                let r: Table = try await request(provider(), insertMethod(localRecord)).response!
                                 synced.append(
                                     SyncResponse(change: change, result: r)
                                 )
@@ -138,7 +146,7 @@ public extension RequestService {
                         case .update:
                             guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
                             if let updateMethod = updateMethod {
-                                let r: Table = try await request(provider, updateMethod(localRecord)).response!
+                                let r: Table = try await request(provider(), updateMethod(localRecord)).response!
                                 synced.append(
                                     SyncResponse(change: change, result: r)
                                 )
@@ -146,7 +154,7 @@ public extension RequestService {
                         
                         case .delete:
                             if let deleteMethod = deleteMethod {
-                                let _: Table? = try await request(provider, deleteMethod(change.recordID)).response
+                                let _: Table? = try await request(provider(), deleteMethod(change.recordID)).response
                                 synced.append(
                                     SyncResponse(change: change)
                                 )
@@ -191,7 +199,11 @@ public extension RequestService {
                 
                 return table.get()
             },
-            _getName: { table.getName() }
+            _getName: { table.getName() },
+            
+            _setPlugins: {
+                setPlugins($0)
+            }
         )
         
         func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> FetchResponse<Response?> {
@@ -220,76 +232,47 @@ public extension RequestService {
         }
     }
     
-    static func mock(
-        table: DatabaseTable<Table>
+    public static func live(
+        table: DatabaseTable<Table>,
+        
+        fetchMethod: FetchType<Target>,
+        insertMethod: ((Table) -> Target)? = nil,
+        updateMethod: ((Table) -> Target)? = nil,
+        deleteMethod: ((Int) -> Target)? = nil
     ) -> Self
     {
-        @Dependency(\.track) var track
-        
-        return Self(
-            _get: { table.get() },
-            _getBy: { table.get(by: $0) },
-            _create: { table.create($0) },
-            _update: { table.update($0, isTrack: true) },
-            _delete: { table.delete($0.id, isTrack: true) },
-            _fetch: { _ in
-                return FetchResponse([.init()], [:])
+        var provider = MoyaProvider<Target>()
+        return normal(
+            table: table, 
+            provider: {provider},
+            setPlugins: {
+                provider = MoyaProvider<Target>(plugins: $0)
             },
-            _clear: { table.clear() },
-            _sync: { remoteRecords in
-                // 1. get remote data
-                // 2. get local changes
-                
-                // no track     -> local delete
-                
-                // insert       -> remote insert
-                // update       -> remote update
-                // delete       -> remote delete
-                
-                // no insert    -> local insert
-                // no update    -> local update
-                
-                // ------------------------------
-                
-                let localRecords = table.get()
-                
-                for localRecord in localRecords {
-                    if (
-                        remoteRecords.first(where: { $0.id == localRecord.id }) == nil &&
-                        track.getChange(localRecord.id, table.getName())?.type != .insert
-                    )
-                    {
-                        // local was not inserted and no remote record -> delete local
-                        table.delete(localRecord.id, isTrack: false)
-                    }
-                }
-                
-                for remoteRecord in remoteRecords {
-                    if let localRecord = localRecords.first(where: { $0.id == remoteRecord.id }) {
-                        if let change = track.getChange(localRecord.id, table.getName()) {
-                            if change.type == .insert {
-                                // remote and local id are new records -> insert local too
-                                table.insert(remoteRecord, isTrack: false) // local record will be overwritten but later fetched again
-                            }
-                            // else: remoteRecord old
-                        } else if localRecord != remoteRecord {
-                            // remote data changed -> update local
-                            table.update(remoteRecord, isTrack: false)
-                        }
-                    } else {
-                        if track.getChange(remoteRecord.id, table.getName()) == nil {
-                            // local record not found and was not deleted -> insert local
-                            table.insert(remoteRecord, isTrack: false)
-                        }
-                        // else: already local deleted
-                    }
-                }
-                
-                
-                return table.get()
-            },
-            _getName: { table.getName() }
+            fetchMethod: fetchMethod, insertMethod: insertMethod, updateMethod: updateMethod, deleteMethod: deleteMethod
         )
     }
+    
+    public static func mock(
+        table: DatabaseTable<Table>,
+        
+        fetchMethod: FetchType<Target>,
+        insertMethod: ((Table) -> Target)? = nil,
+        updateMethod: ((Table) -> Target)? = nil,
+        deleteMethod: ((Int) -> Target)? = nil
+    ) -> Self
+    {
+        var provider = MoyaProvider<Target>(stubClosure: MoyaProvider.immediatelyStub)
+        return normal(
+            table: table,
+            provider: {provider},
+            setPlugins: {
+                provider = MoyaProvider<Target>(stubClosure: MoyaProvider.immediatelyStub, plugins: $0)
+            },
+            fetchMethod: fetchMethod, insertMethod: insertMethod, updateMethod: updateMethod, deleteMethod: deleteMethod
+        )
+    }
+    
+    
+    
 }
 
