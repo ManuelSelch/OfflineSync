@@ -1,7 +1,7 @@
 import Foundation
 
 @available(iOS 16.0, *)
-public struct DatabaseChange: Equatable, Codable {
+public struct DatabaseChange: Equatable, Codable, Hashable {
     public var id: Int
     public var type: DatabaseChangeType
     public var recordID: Int
