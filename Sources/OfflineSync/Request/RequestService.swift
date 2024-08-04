@@ -46,19 +46,14 @@ public struct RequestService<Table: TableProtocol, Target: TargetType> {
         self._clear()
     }
     
-    public func sync() -> AnyPublisher<[Table], Error> {
-        return Future<[Table], Error> { promise in
-            _Concurrency.Task {
-                do {
-                    let remote = try await self.fetch()
-                    let synced = try await self._sync(remote.response)
-                    return promise(.success(synced))
-                } catch {
-                    return promise(.failure(OfflineSyncError.unknown("\(error)")))
-                }
-            }
+    public func sync() async throws -> [Table] {
+        do {
+            let remote = try await self.fetch()
+            let synced = try await self._sync(remote.response)
+            return synced
+        } catch {
+            throw OfflineSyncError.unknown("\(error)")
         }
-        .eraseToAnyPublisher()
     }
     
     public func getName() -> String {
