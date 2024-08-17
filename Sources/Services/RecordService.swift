@@ -16,9 +16,9 @@ public protocol IRecordService<Model> {
     func setPlugins(_ plugins: [PluginType])
 }
 
-public class RecordService<Model: TableProtocol>: IRecordService {
+open class RecordService<Model: TableProtocol>: IRecordService {
     var repository: DatabaseRepository<Model>
-    var requestService: any RequestServiceProtocol<Model>
+    public var requestService: any RequestServiceProtocol<Model>
     var syncService: SyncService<Model>
     
     public init(

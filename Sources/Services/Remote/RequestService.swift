@@ -16,18 +16,18 @@ public protocol RequestServiceProtocol<Model> {
     func delete(_ id: Int) async throws
 }
 
-public class RequestService<Model: TableProtocol, API: TargetType>: RequestServiceProtocol {
-    private var fetchMethod:  () -> API
-    private var insertMethod: ((Model) -> API)? = nil
-    private var updateMethod: ((Model) -> API)? = nil
-    private var deleteMethod: ((Int) -> API)? = nil
+open class RequestService<Model: TableProtocol, API: TargetType>: RequestServiceProtocol {
+    public var fetchMethod:  (() -> API)? = nil
+    public var insertMethod: ((Model) -> API)? = nil
+    public var updateMethod: ((Model) -> API)? = nil
+    public var deleteMethod: ((Int) -> API)? = nil
     
-    private var provider: MoyaProvider<API>
+    public var provider: MoyaProvider<API>
     
-    var _setPlugins: ([PluginType]) -> (MoyaProvider<API>)
+    public var _setPlugins: ([PluginType]) -> (MoyaProvider<API>)
     
-    init(
-        fetchMethod: @escaping () -> API,
+    public init(
+        fetchMethod:  (() -> API)? = nil,
         insertMethod: ((Model) -> API)? = nil,
         updateMethod: ((Model) -> API)? = nil,
         deleteMethod: ((Int) -> API)? = nil,
@@ -47,7 +47,11 @@ public class RequestService<Model: TableProtocol, API: TargetType>: RequestServi
         self.provider = _setPlugins(plugins)
     }
     
-    public func fetch() async throws -> [Model] {
+    open func fetch() async throws -> [Model] {
+        guard let fetchMethod = fetchMethod else {
+            throw ServiceError.remoteMethodNotDefined
+        }
+        
         if let response: [Model] = try await request(provider, fetchMethod()) {
             return response
         }
@@ -84,7 +88,7 @@ public class RequestService<Model: TableProtocol, API: TargetType>: RequestServi
         let _: Model? = try await request(provider, deleteMethod(id))
     }
     
-    private func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> Response? {
+    public func request<Response: Decodable, TargetType>(_ provider: MoyaProvider<TargetType>, _ method: TargetType) async throws -> Response? {
         return try await withCheckedThrowingContinuation { continuation in
             provider.request(method){ result in
                 switch result {
