@@ -1,27 +1,8 @@
 import Foundation
-import SQLite
 import Dependencies
+import SQLite
 
-/*
- sync system:
- - fetch remote data
- - update old local data by timestamp
- - update old remote data
- */
-@available(iOS 16.0, *)
-public protocol TableSyncProtocol: Encodable {
-    var metaFields: [String: String] { get set }
-}
-
-@available(iOS 16.0, *)
-public protocol TableProtocol: Codable, Equatable, Identifiable {
-    var id: Int { get set }
-    /// Mirror(reflecting: T())
-    init()
-}
-
-@available(iOS 16.0, *)
-public class DatabaseTable<T: TableProtocol> {
+public class DatabaseRepository<Model: TableProtocol> {
     @Dependency(\.database) var database
     @Dependency(\.track) var track
     
@@ -47,15 +28,19 @@ public class DatabaseTable<T: TableProtocol> {
         }
     }
     
+    public func clearChanges(of recordID: Int) {
+        track.clear(recordID, tableName)
+    }
+    
     /// sets record it to lastID+1 and track changes
-    public func create(_ item: T){
+    public func create(_ item: Model){
         var item = item
         item.id = getLastId() + 1
         insert(item, isTrack: true)
         
     }
     
-    public func insert(_ item: T, isTrack: Bool) {
+    public func insert(_ item: Model, isTrack: Bool) {
         let item = item
         do {
             try database.connection?.run(table.insert(or: .replace, encodable: item))
@@ -71,11 +56,11 @@ public class DatabaseTable<T: TableProtocol> {
         return get().max(by: { $0.id < $1.id })?.id ?? 0
     }
     
-    public func getTimestamp(_ item: T) -> String {
+    public func getTimestamp(_ item: Model) -> String {
         return (get(by: item.id) as? TableSyncProtocol)?.metaFields["timestamp"] ?? "\(Date.now)"
     }
     
-    public func update(_ item: T, isTrack: Bool) {
+    public func update(_ item: Model, isTrack: Bool) {
         do {
             try database.connection?.run(table.filter(id == item.id).update(item))
             if(isTrack){
@@ -97,13 +82,13 @@ public class DatabaseTable<T: TableProtocol> {
         }
     }
     
-    public func get() -> [T] {
+    public func get() -> [Model] {
         guard let db = database.connection else { print("no connection db..."); return [] }
         
         createTable()
         
         do {
-            let records: [T] = try db.prepare(table).map { row in
+            let records: [Model] = try db.prepare(table).map { row in
                 return try row.decode()
             }
             return records
@@ -114,11 +99,11 @@ public class DatabaseTable<T: TableProtocol> {
         }
     }
     
-    public func get(by id: Int) -> T? {
+    public func get(by id: Int) -> Model? {
         guard let db = database.connection else { return nil }
         
         do {
-            let records: [T] = try db.prepare(table.filter(self.id == id)).map { row in
+            let records: [Model] = try db.prepare(table.filter(self.id == id)).map { row in
                 return try row.decode()
             }
             return records.first
@@ -131,7 +116,7 @@ public class DatabaseTable<T: TableProtocol> {
     private func createTable() {
         let createTable = table.create(ifNotExists: true) { (table) in
             
-            let mirror = Mirror(reflecting: T())
+            let mirror = Mirror(reflecting: Model())
             
             for (name, value) in mirror.children {
                 guard let name = name else { continue }
@@ -180,5 +165,9 @@ public class DatabaseTable<T: TableProtocol> {
     
     public func getName() -> String {
         return tableName
+    }
+    
+    public func getChanges() -> [DatabaseChange] {
+        return track.getChanges(tableName) ?? []
     }
 }

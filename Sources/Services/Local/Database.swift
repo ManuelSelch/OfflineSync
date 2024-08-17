@@ -3,14 +3,12 @@ import SQLite
 import Combine
 import Dependencies
 
-@available(iOS 16.0, *)
 public protocol IDatabase {
     var connection: Connection? { get }
     func create()
     func reset()
 }
 
-@available(iOS 16.0, *)
 public struct Database {
     public var connection: Connection? {
         getConnection()

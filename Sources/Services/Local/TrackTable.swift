@@ -2,7 +2,6 @@ import Foundation
 import SQLite
 import Dependencies
 
-@available(iOS 16.0, *)
 public class TrackTable {
     @Dependency(\.database) var database
     

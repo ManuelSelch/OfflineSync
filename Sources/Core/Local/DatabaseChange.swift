@@ -1,5 +1,11 @@
 import Foundation
 
+public extension Array where Element == DatabaseChange {
+    func get(_ recordID: Int?) -> Element? {
+        return self.first(where: {$0.recordID == recordID})
+    }
+}
+
 @available(iOS 16.0, *)
 public struct DatabaseChange: Equatable, Codable, Hashable {
     public var id: Int

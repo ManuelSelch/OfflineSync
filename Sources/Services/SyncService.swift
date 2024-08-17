@@ -1,0 +1,119 @@
+
+import Foundation
+
+public protocol ISyncService<Model> {
+    associatedtype Model: TableProtocol
+    
+    func sync(localRecords: [Model], remoteRecords: [Model]) throws -> [Model]
+}
+
+
+public struct SyncService<Model: TableProtocol> {
+    private var repository: DatabaseRepository<Model>
+    private var requestService: any RequestServiceProtocol<Model>
+    
+    public func sync(localRecords: [Model], remoteRecords: [Model]) async throws -> [Model] {
+        // 1. delete old local records
+        // no track     -> local delete
+        
+        // 2. upload local changes
+        // insert       -> remote insert
+        // update       -> remote update
+        // delete       -> remote delete
+        
+        // 3. merge remote changes
+        // no insert    -> local insert
+        // no update    -> local update
+        
+        // ------------------------------
+        
+        var synced: [SyncResponse<Model>] = []
+        let changes = repository.getChanges()
+        
+        // MARK: - 1. delete old local records
+        for localRecord in localRecords {
+            if (
+                remoteRecords.get(localRecord.id) == nil &&
+                changes.get(localRecord.id)?.type != .insert
+            )
+            {
+                // local was not inserted and no remote record -> delete local
+                repository.delete(localRecord.id, isTrack: false)
+            }
+        }
+        
+        
+        // MARK: - 2. upload local changes
+        for change in changes {
+            switch(change.type){
+                case .insert:
+                    guard let localRecord = localRecords.get(change.recordID) else { continue }
+                    let result = try await requestService.insert(localRecord)
+                
+                    synced.append(
+                        SyncResponse(change: change, result: result)
+                    )
+                case .update:
+                    guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
+                    let result = try await requestService.update(localRecord)
+                    synced.append(
+                        SyncResponse(change: change, result: result)
+                    )
+                
+                case .delete:
+                    try await requestService.delete(change.recordID)
+                    synced.append(
+                        SyncResponse(change: change)
+                    )
+            }
+        }
+        
+        // MARK: - 3. merge remote changes
+        for remoteRecord in remoteRecords {
+            
+            guard let localRecord = localRecords.get(remoteRecord.id) else {
+                // local record not found and was not deleted -> insert local
+                if changes.get(remoteRecord.id) == nil {
+                    repository.insert(remoteRecord, isTrack: false)
+                    
+                }
+                continue
+            }
+            
+            guard let change = changes.get(localRecord.id) else {
+                // remote data changed -> update local
+                if localRecord != remoteRecord {
+                    repository.update(remoteRecord, isTrack: false)
+                }
+                continue
+            }
+                    
+                    
+            if change.type == .insert {
+                // remote and local id are new records -> insert local too
+                repository.insert(remoteRecord, isTrack: false) // local record will be overwritten but later fetched again
+            }
+            // else: remoteRecord old
+            
+
+        }
+        
+        for response in synced {
+            repository.clearChanges(of: response.change.recordID)
+            
+            guard let result = response.result else { continue }
+            
+            
+            if(response.change.recordID != result.id){
+                // id has changed -> delete and reinsert record
+                repository.delete(response.change.recordID, isTrack: false)
+                repository.insert(result, isTrack: false)
+            }else {
+                repository.update(result, isTrack: false)
+            }
+            
+        }
+        
+        return repository.get()
+    }
+}
