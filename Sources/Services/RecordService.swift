@@ -53,13 +53,13 @@ open class RecordService<Model: TableProtocol>: IRecordService {
         repository.delete(id, isTrack: true)
     }
     
-    public func fetch() async throws -> [Model] {
-        return try await requestService.fetch().map { $0 };
+    public func fetch() async -> [Model] {
+        return (try? await requestService.fetch()) ?? []
     }
     
     public func sync() async throws -> [Model] {
         let localRecords = repository.get()
-        let remoteRecords = try await requestService.fetch().map { $0 };
+        let remoteRecords = await fetch();
         let synced = try await syncService.sync(localRecords: localRecords, remoteRecords: remoteRecords)
         return synced
     }
