@@ -2,6 +2,8 @@ import Foundation
 import Dependencies
 import SQLite
 
+import OfflineSyncCore
+
 public class DatabaseRepository<Model: TableProtocol> {
     @Dependency(\.database) var database
     @Dependency(\.track) var track

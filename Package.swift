@@ -11,7 +11,7 @@ let package = Package(
     products: [
         .library(
             name: "OfflineSync",
-            targets: ["OfflineSync"]),
+            targets: ["OfflineSyncCore", "OfflineSyncServices"]),
     ],
     dependencies: [
         .package(url: "https://github.com/Moya/Moya.git", .upToNextMajor(from: "15.0.0")),
@@ -20,16 +20,30 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "OfflineSync",
+            name: "OfflineSyncCore",
             dependencies: [
                 .product(name: "Moya", package: "Moya"),
                 .product(name: "SQLite", package: "SQLite.swift"),
                 .product(name: "Dependencies", package: "Dependencies")
             ],
-            path: "Sources"
+            path: "Sources/Core"
         ),
+        
+        .target(
+            name: "OfflineSyncServices",
+            dependencies: [
+                "OfflineSyncCore",
+                .product(name: "Moya", package: "Moya"),
+                .product(name: "SQLite", package: "SQLite.swift"),
+                .product(name: "Dependencies", package: "Dependencies")
+            ],
+            path: "Sources/Services"
+        ),
+        
+        
         .testTarget(
             name: "OfflineSyncTests",
-            dependencies: ["OfflineSync"]),
+            dependencies: ["OfflineSyncCore", "OfflineSyncServices"]
+        ),
     ]
 )

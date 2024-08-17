@@ -13,6 +13,14 @@ public struct DatabaseChange: Equatable, Codable, Hashable {
     public var recordID: Int
     public var tableName: String
     public var timestamp: String
+    
+    public init(id: Int, type: DatabaseChangeType, recordID: Int, tableName: String, timestamp: String) {
+        self.id = id
+        self.type = type
+        self.recordID = recordID
+        self.tableName = tableName
+        self.timestamp = timestamp
+    }
 }
 
 @available(iOS 16.0, *)
@@ -29,4 +37,9 @@ public enum DatabaseChangeType: Int, Codable {
 public struct SyncResponse<Target> {
     public var change: DatabaseChange
     public var result: Target?
+    
+    public init(change: DatabaseChange, result: Target? = nil) {
+        self.change = change
+        self.result = result
+    }
 }

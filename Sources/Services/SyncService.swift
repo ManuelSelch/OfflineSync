@@ -1,16 +1,26 @@
 
 import Foundation
 
-public protocol ISyncService<Model> {
-    associatedtype Model: TableProtocol
-    
-    func sync(localRecords: [Model], remoteRecords: [Model]) throws -> [Model]
-}
-
+import OfflineSyncCore
 
 public struct SyncService<Model: TableProtocol> {
     private var repository: DatabaseRepository<Model>
-    private var requestService: any RequestServiceProtocol<Model>
+    
+    private var remoteInsert: (Model) async throws -> (Model)
+    private var remoteUpdate: ((Model) async throws -> (Model))?
+    private var remoteDelete: ((Int) async throws -> ())?
+    
+    public init(
+        repository: DatabaseRepository<Model>,
+        remoteInsert: @escaping (Model) async throws -> Model,
+        remoteUpdate: ((Model) async throws -> Model)?,
+        remoteDelete: ((Int) async throws -> Void)?
+    ) {
+        self.repository = repository
+        self.remoteInsert = remoteInsert
+        self.remoteUpdate = remoteUpdate
+        self.remoteDelete = remoteDelete
+    }
     
     public func sync(localRecords: [Model], remoteRecords: [Model]) async throws -> [Model] {
         // 1. delete old local records
@@ -46,25 +56,29 @@ public struct SyncService<Model: TableProtocol> {
         // MARK: - 2. upload local changes
         for change in changes {
             switch(change.type){
-                case .insert:
-                    guard let localRecord = localRecords.get(change.recordID) else { continue }
-                    let result = try await requestService.insert(localRecord)
-                
+            case .insert:
+                guard let localRecord = localRecords.get(change.recordID) else { continue }
+                let result = try await remoteInsert(localRecord)
+            
+                synced.append(
+                    SyncResponse(change: change, result: result)
+                )
+            case .update:
+                guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
+                if let remoteUpdate = remoteUpdate {
+                    let result = try await remoteUpdate(localRecord)
                     synced.append(
                         SyncResponse(change: change, result: result)
                     )
-                case .update:
-                    guard let localRecord = localRecords.first(where: {$0.id == change.recordID}) else { continue }
-                    let result = try await requestService.update(localRecord)
-                    synced.append(
-                        SyncResponse(change: change, result: result)
-                    )
-                
-                case .delete:
-                    try await requestService.delete(change.recordID)
+                }
+            
+            case .delete:
+                if let remoteDelete = remoteDelete {
+                    try await remoteDelete(change.recordID)
                     synced.append(
                         SyncResponse(change: change)
                     )
+                }
             }
         }
         

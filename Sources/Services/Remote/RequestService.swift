@@ -3,13 +3,12 @@ import Combine
 import Moya
 import Dependencies
 
-public enum FetchType<Target> {
-    case page((_ page: Int) -> Target)
-    case simple(Target)
-}
+import OfflineSyncCore
 
 public protocol RequestServiceProtocol<Model> {
     associatedtype Model: TableProtocol
+    
+    func setPlugins(_ plugins: [PluginType])
     
     func fetch() async throws -> [Model]
     func insert(_ model: Model) async throws -> Model
@@ -17,13 +16,36 @@ public protocol RequestServiceProtocol<Model> {
     func delete(_ id: Int) async throws
 }
 
-public struct RequestService<Model: TableProtocol, API: TargetType>: RequestServiceProtocol {
+public class RequestService<Model: TableProtocol, API: TargetType>: RequestServiceProtocol {
     private var fetchMethod:  () -> API
     private var insertMethod: ((Model) -> API)? = nil
     private var updateMethod: ((Model) -> API)? = nil
     private var deleteMethod: ((Int) -> API)? = nil
     
     private var provider: MoyaProvider<API>
+    
+    var _setPlugins: ([PluginType]) -> (MoyaProvider<API>)
+    
+    init(
+        fetchMethod: @escaping () -> API,
+        insertMethod: ((Model) -> API)? = nil,
+        updateMethod: ((Model) -> API)? = nil,
+        deleteMethod: ((Int) -> API)? = nil,
+        
+        provider: MoyaProvider<API>,
+        _setPlugins: @escaping ([PluginType]) -> MoyaProvider<API>
+    ) {
+        self.fetchMethod = fetchMethod
+        self.insertMethod = insertMethod
+        self.updateMethod = updateMethod
+        self.deleteMethod = deleteMethod
+        self.provider = provider
+        self._setPlugins = _setPlugins
+    }
+    
+    public func setPlugins(_ plugins: [PluginType]) {
+        self.provider = _setPlugins(plugins)
+    }
     
     public func fetch() async throws -> [Model] {
         if let response: [Model] = try await request(provider, fetchMethod()) {
@@ -92,14 +114,17 @@ extension RequestService {
         insertMethod: ((Model) -> API)? = nil,
         updateMethod: ((Model) -> API)? = nil,
         deleteMethod: ((Int) -> API)? = nil
-    ) -> Self
+    ) -> RequestService
     {
-        return Self(
+        return .init(
             fetchMethod: fetchMethod,
             insertMethod: insertMethod,
             updateMethod: updateMethod,
             deleteMethod: deleteMethod,
-            provider: MoyaProvider<API>()
+            provider: MoyaProvider<API>(),
+            _setPlugins: { plugins in
+                return MoyaProvider<API>(plugins: plugins)
+            }
         )
     }
     
@@ -108,14 +133,17 @@ extension RequestService {
         insertMethod: ((Model) -> API)? = nil,
         updateMethod: ((Model) -> API)? = nil,
         deleteMethod: ((Int) -> API)? = nil
-    ) -> Self
+    ) -> RequestService
     {
-        return Self(
+        return .init(
             fetchMethod: fetchMethod,
             insertMethod: insertMethod,
             updateMethod: updateMethod,
             deleteMethod: deleteMethod,
-            provider: MoyaProvider<API>(stubClosure: MoyaProvider.immediatelyStub)
+            provider: MoyaProvider<API>(stubClosure: MoyaProvider.immediatelyStub),
+            _setPlugins: { plugins in
+                return MoyaProvider<API>(stubClosure: MoyaProvider.immediatelyStub, plugins: plugins)
+            }
         )
     }
 }

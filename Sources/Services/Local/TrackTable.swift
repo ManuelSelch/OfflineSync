@@ -2,6 +2,8 @@ import Foundation
 import SQLite
 import Dependencies
 
+import OfflineSyncCore
+
 public class TrackTable {
     @Dependency(\.database) var database
     
