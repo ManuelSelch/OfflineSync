@@ -12,8 +12,8 @@ public class DatabaseRepository<Model: TableProtocol> {
     private let tableName: String
     private var dbPath: String?
     
-    private var id = Expression<Int>("id")
-    private var fields: [String: Expression<Any>] = [:]
+    private var id = SQLite.Expression<Int>("id")
+    private var fields: [String: SQLite.Expression<Any>] = [:]
     
     public init(_ tableName: String) {
         self.tableName = tableName
@@ -130,25 +130,25 @@ public class DatabaseRepository<Model: TableProtocol> {
                 }else{
                     switch type {
                     case is String.Type:
-                        table.column(Expression<String>(name))
+                        table.column(SQLite.Expression<String>(name))
                     case is Int.Type:
-                        table.column(Expression<Int>(name))
+                        table.column(SQLite.Expression<Int>(name))
                     case is Bool.Type:
-                        table.column(Expression<Bool>(name))
+                        table.column(SQLite.Expression<Bool>(name))
                     case is Double.Type:
-                        table.column(Expression<Double>(name))
+                        table.column(SQLite.Expression<Double>(name))
                         
                     case is String?.Type:
-                        table.column(Expression<String?>(name))
+                        table.column(SQLite.Expression<String?>(name))
                     case is Int?.Type:
-                        table.column(Expression<Int?>(name))
+                        table.column(SQLite.Expression<Int?>(name))
                     case is Bool?.Type:
-                        table.column(Expression<Bool?>(name))
+                        table.column(SQLite.Expression<Bool?>(name))
                     case is Double?.Type:
-                        table.column(Expression<Double?>(name))
+                        table.column(SQLite.Expression<Double?>(name))
                         
                     default:
-                        table.column(Expression<String>(name))
+                        table.column(SQLite.Expression<String>(name))
                     }
                 }
                 

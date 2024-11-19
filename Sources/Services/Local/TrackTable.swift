@@ -10,11 +10,11 @@ public class TrackTable {
     private let table: Table
     private var dbPath: String?
     
-    private var id = Expression<Int>("id")
-    private var type = Expression<Int>("type")
-    private var recordID = Expression<Int>("recordID")
-    private var tableName = Expression<String>("tableName")
-    private var timestamp = Expression<String>("timestamp")
+    private var id = SQLite.Expression<Int>("id")
+    private var type = SQLite.Expression<Int>("type")
+    private var recordID = SQLite.Expression<Int>("recordID")
+    private var tableName = SQLite.Expression<String>("tableName")
+    private var timestamp = SQLite.Expression<String>("timestamp")
     
     public init() {
         self.table = Table("track")
