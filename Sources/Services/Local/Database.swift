@@ -3,19 +3,14 @@ import SQLite
 import Combine
 import Dependencies
 
-public protocol IDatabase {
-    var connection: Connection? { get }
-    func create()
-    func reset()
-}
-
 public struct Database {
     public var connection: Connection? {
         getConnection()
     }
     public var getConnection: () -> (Connection?)
     
-    public var reset: () -> ()
+    public var deleteDB: (_ name: String) -> ()
+    public var deleteAllDBs: () -> ()
     
     public var switchDB: (String) -> ()
     
@@ -50,8 +45,24 @@ extension Database {
         
         return Self(
             getConnection: {connection},
-            reset: {
+            deleteDB: { name in
                 print("start delete database")
+                
+                let manager = FileManager.default
+                if let dirPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    var dbPath = dirPath.appendingPathComponent(name).path
+                    
+                    do {
+                        let fileURL = NSURL(fileURLWithPath: dbPath)
+                        try manager.removeItem(at: fileURL as URL)
+                        print("Database Deleted")
+                    } catch {
+                        print("Error on Delete Database")
+                    }
+                }
+                
+                let filemManager = FileManager.default
+                
                 if let dbPath = dbPath {
                     let filemManager = FileManager.default
                     do {
@@ -65,6 +76,15 @@ extension Database {
                     print("Database path not found")
                 }
             },
+            deleteAllDBs: {
+                let manager = FileManager.default
+                if let contents = try? manager.contentsOfDirectory(at: .documentsDirectory, includingPropertiesForKeys: nil, options: []) {
+                    for file in contents {
+                        try? manager.removeItem(at: file)
+                    }
+                }
+                
+            },
             switchDB: { name in
                 print("switch database to: \(name)")
                 createDB(name)
@@ -77,7 +97,8 @@ extension Database {
         
         return Self(
             getConnection: {connection},
-            reset: { connection = nil },
+            deleteDB: { _ in connection = nil },
+            deleteAllDBs: { connection = nil },
             switchDB: { _ in
                 connection = try? Connection(.inMemory)
             }
