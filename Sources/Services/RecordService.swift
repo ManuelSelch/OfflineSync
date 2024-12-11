@@ -23,7 +23,8 @@ open class RecordService<Model: TableProtocol>: IRecordService {
     
     public init(
         repository: DatabaseRepository<Model>,
-        requestService: any RequestServiceProtocol<Model>
+        requestService: any RequestServiceProtocol<Model>,
+        keyMapping: KeyMappingTable
     ) {
         self.repository = repository
         self.requestService = requestService
@@ -31,7 +32,8 @@ open class RecordService<Model: TableProtocol>: IRecordService {
             repository: repository,
             remoteInsert: { try await requestService.insert($0) },
             remoteUpdate: { try await requestService.update($0) },
-            remoteDelete: { try await requestService.delete($0) }
+            remoteDelete: { try await requestService.delete($0) },
+            keyMapping: keyMapping
         )
     }
     

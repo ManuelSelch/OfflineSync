@@ -127,7 +127,8 @@ public class TrackTable {
     
     
     public func createTable() {
-        let createTable = table.create(ifNotExists: true) { (table) in
+        // will fail if table exists
+        let createTable = table.create(ifNotExists: false) { (table) in
             table.column(id, primaryKey: .default)
             table.column(type)
             table.column(recordID)
@@ -135,7 +136,12 @@ public class TrackTable {
             table.column(timestamp)
         }
         
-        _ = try? database.connection?.run(createTable)
+        do {
+            _ = try database.connection?.run(createTable)
+        } catch {
+            // table already exists
+        }
+        
     }
 }
 

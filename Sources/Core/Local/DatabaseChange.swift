@@ -6,7 +6,6 @@ public extension Array where Element == DatabaseChange {
     }
 }
 
-@available(iOS 16.0, *)
 public struct DatabaseChange: Equatable, Codable, Hashable {
     public var id: Int
     public var type: DatabaseChangeType
@@ -23,7 +22,6 @@ public struct DatabaseChange: Equatable, Codable, Hashable {
     }
 }
 
-@available(iOS 16.0, *)
 public enum DatabaseChangeType: Int, Codable {
     /// locally updated record
     case update = 0
@@ -33,7 +31,6 @@ public enum DatabaseChangeType: Int, Codable {
     case delete = 2
 }
 
-@available(iOS 16.0, *)
 public struct SyncResponse<Target> {
     public var change: DatabaseChange
     public var result: Target?

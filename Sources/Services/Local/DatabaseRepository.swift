@@ -15,6 +15,7 @@ public class DatabaseRepository<Model: TableProtocol> {
     private var id = SQLite.Expression<Int>("id")
     private var fields: [String: SQLite.Expression<Any>] = [:]
     
+    
     public init(_ tableName: String) {
         self.tableName = tableName
         
