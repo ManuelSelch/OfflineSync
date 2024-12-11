@@ -116,6 +116,8 @@ public class DatabaseRepository<Model: TableProtocol> {
     }
     
     private func createTable() {
+        track.createTable()
+        
         let createTable = table.create(ifNotExists: true) { (table) in
             
             let mirror = Mirror(reflecting: Model())
