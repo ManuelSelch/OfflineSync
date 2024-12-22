@@ -39,26 +39,25 @@ public class KeyMappingTable {
         
     
         for relation in relations {
-            let parentTable = Table(relation.parentTable)
-            let foreignKey = Expression<Int>(relation.foreignKey)
+            let foreignKey = Expression<Int?>(relation.foreignKey)
             
             guard let rows = try? database.connection?.prepare(childTable)
             else { return }
 
             // Fetch all rows that need updating
             for childRow in rows {
-                let localFKValue = childRow[foreignKey]
-
-                let fetchRemoteID = mappingTable
-                    .select(remoteID)
-                    .filter(tableName == relation.parentTable && localID == localFKValue)
-
-                // Extract the remote ID
-                if let remoteIDValue = try? database.connection?.pluck(fetchRemoteID)?.get(remoteID) {
-                    // Update the child's foreign key with the remote ID
-                    let updateQuery = childTable.filter(foreignKey == localFKValue)
-                        .update(foreignKey <- remoteIDValue)
-                    _ = try? database.connection?.run(updateQuery)
+                if let localFKValue = childRow[foreignKey] {
+                    let fetchRemoteID = mappingTable
+                        .select(remoteID)
+                        .filter(tableName == relation.parentTable && localID == localFKValue)
+                    
+                    // Extract the remote ID
+                    if let remoteIDValue = try? database.connection?.pluck(fetchRemoteID)?.get(remoteID) {
+                        // Update the child's foreign key with the remote ID
+                        let updateQuery = childTable.filter(foreignKey == localFKValue)
+                            .update(foreignKey <- remoteIDValue)
+                        _ = try? database.connection?.run(updateQuery)
+                    }
                 }
             }
         }
