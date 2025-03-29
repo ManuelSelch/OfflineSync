@@ -5,7 +5,7 @@ import SQLite
 import OfflineSyncCore
 
 public struct SyncService<Model: TableProtocol> {
-    private var keyMapping: KeyMappingTable
+    // private var keyMapping: KeyMappingTable
     
     private var repository: DatabaseRepository<Model>
     
@@ -17,14 +17,14 @@ public struct SyncService<Model: TableProtocol> {
         repository: DatabaseRepository<Model>,
         remoteInsert: @escaping (Model) async throws -> Model,
         remoteUpdate: ((Model) async throws -> Model)?,
-        remoteDelete: ((Int) async throws -> Void)?,
-        keyMapping: KeyMappingTable
+        remoteDelete: ((Int) async throws -> Void)?
+        // keyMapping: KeyMappingTable
     ) {
         self.repository = repository
         self.remoteInsert = remoteInsert
         self.remoteUpdate = remoteUpdate
         self.remoteDelete = remoteDelete
-        self.keyMapping = keyMapping
+        // self.keyMapping = keyMapping
     }
     
     
@@ -128,7 +128,7 @@ public struct SyncService<Model: TableProtocol> {
             
             if(response.change.recordID != result.id){
                 // id has changed -> delete and reinsert record
-                addMapping(repository.getName(), response.change.recordID, result.id)
+                // addMapping(repository.getName(), response.change.recordID, result.id)
                 repository.delete(response.change.recordID, isTrack: false)
                 repository.insert(result, isTrack: false)
             }else {
@@ -137,11 +137,11 @@ public struct SyncService<Model: TableProtocol> {
             
         }
         
-        keyMapping.updateAllForeignKeys()
+        // keyMapping.updateAllForeignKeys()
         return repository.get()
     }
     
     private func addMapping(_ tableName: String, _ localID: Int, _ remoteID: Int) {
-        keyMapping.insert(KeyMapping(-1, tableName, localID, remoteID))
+        // keyMapping.insert(KeyMapping(-1, tableName, localID, remoteID))
     }
 }
